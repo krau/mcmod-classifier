@@ -1,4 +1,4 @@
-module mcmod-classifier
+module github.com/krau/mcmod-classifier
 
 go 1.21.4
 
