@@ -67,6 +67,12 @@ func GetModName(path string) string {
 	if strings.Contains(s, "-fabric") {
 		s = strings.Split(s, "-fabric")[0]
 	}
+	if strings.Contains(s, "-quilt") {
+		s = strings.Split(s, "-quilt")[0]
+	}
+	if strings.Contains(s, "-neoforge") {
+		s = strings.Split(s, "-neoforge")[0]
+	}
 
 	if strings.Contains(s, "-") {
 		parts := VersionPattern.Split(s, -1)
