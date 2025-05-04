@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/gookit/slog"
-	"github.com/gookit/slog/handler"
+	"github.com/charmbracelet/log"
 	"github.com/imroc/req/v3"
 	"github.com/schollz/progressbar/v3"
 )
@@ -28,9 +27,8 @@ const (
 var (
 	BracketsPattern = regexp.MustCompile(`\[([^]]+)\]`)
 	VersionPattern  = regexp.MustCompile(`\b\d+(\.\d+)+\b|\bv\d+(\.\d+)+\b`)
-	Client          = req.C()
+	Client          = req.C().ImpersonateChrome()
 	WikiURL         = "https://search.mcmod.cn/s"
-	Log             *slog.Logger
 	TargetPath      = []string{ServerMust, ClientMust, ServerInvalid, ClientInvalid, ServerOptional, ClientOptional, Unknown}
 )
 
@@ -40,16 +38,6 @@ func init() {
 			os.Mkdir(path, os.ModePerm)
 		}
 	}
-
-	slog.DefaultChannelName = "mcmod-classifier"
-	newLogger := slog.New()
-	defer newLogger.Flush()
-	fileH, err := handler.NewFileHandler("mcmod-classifier.log")
-	if err != nil {
-		panic(err)
-	}
-	newLogger.AddHandler(fileH)
-	Log = newLogger
 }
 
 func GetModName(path string) string {
@@ -78,38 +66,38 @@ func GetModName(path string) string {
 		parts := VersionPattern.Split(s, -1)
 		s = strings.TrimSuffix(parts[0], "-")
 	}
-	Log.Debugf("Mod name: %s", s)
+	log.Debugf("Mod name: %s", s)
 	return s
 }
 
 func CopyFile(src, dst string) {
 	srcFile, err := os.Open(src)
 	if err != nil {
-		Log.Error(err)
+		log.Error(err)
 		return
 	}
 	defer srcFile.Close()
 	dstFile, err := os.Create(dst)
 	if err != nil {
-		Log.Error(err)
+		log.Error(err)
 		return
 	}
 	defer dstFile.Close()
 	_, err = io.Copy(dstFile, srcFile)
 	if err != nil {
-		Log.Error(err)
+		log.Error(err)
 		return
 	}
-	Log.Debugf("Copied %s to %s", src, dst)
+	log.Debugf("Copied %s to %s", src, dst)
 }
 
 func main() {
 	matches, err := filepath.Glob("mods/*.jar")
 	if err != nil {
-		slog.Error(err)
+		log.Error(err)
 		return
 	}
-	slog.Infof("Found %d mods\n", len(matches))
+	log.Infof("Found %d mods\n", len(matches))
 	bar := progressbar.Default(int64((len(matches))))
 
 	Client.ImpersonateChrome()
@@ -121,34 +109,34 @@ func main() {
 		modName := GetModName(match)
 		r, err := Client.R().SetQueryParam("key", modName).Get(WikiURL)
 		if err != nil {
-			slog.Error(err)
+			log.Error(err)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 			continue
 		}
 		doc, err := goquery.NewDocumentFromReader(r.Body)
 		if err != nil {
-			slog.Error(err)
+			log.Error(err)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 			continue
 		}
 		// 获取模组页面链接
 		val, exists := doc.Find(".head").First().Find("a").Eq(1).Attr("href")
 		if !exists {
-			Log.Warnf("Mod %s not found", modName)
+			log.Warnf("Mod %s not found", modName)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 			continue
 		}
 		// 获取模组页面
-		Log.Debugf("Mod %s found, url: %s", modName, val)
+		log.Debugf("Mod %s found, url: %s", modName, val)
 		r, err = Client.R().Get(val)
 		if err != nil {
-			slog.Error(err)
+			log.Error(err)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 			continue
 		}
 		doc, err = goquery.NewDocumentFromReader(r.Body)
 		if err != nil {
-			slog.Error(err)
+			log.Error(err)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 			continue
 		}
@@ -162,10 +150,10 @@ func main() {
 			}
 		}
 		if !matched {
-			Log.Warnf("Mod %s not matched", modName)
+			log.Warnf("Mod %s not matched", modName)
 			CopyFile(match, filepath.Join(Unknown, filepath.Base(match)))
 		}
 	}
-	slog.Info("Done")
+	log.Info("Done")
 
 }
